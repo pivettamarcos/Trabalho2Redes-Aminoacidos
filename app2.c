@@ -139,6 +139,7 @@ void *outcoming_connection_handler(void *client_connection_arg){
         printf("-----------------\n");
 
         read_size = recv(client_connectionf->socket_desc , &recv_buffer , sizeof(recv_buffer) , 0);
+        
         if(recv_buffer.method == 'R'){
             int i = 0;
 
@@ -146,7 +147,18 @@ void *outcoming_connection_handler(void *client_connection_arg){
             response_packet.method = 'R';
             response_packet.size = recv_buffer.size;
 
+            for ( i = 0; i < response_packet.size; ++i) { printf("---"); };
+            printf("-----------------\n");
+            printf("|  << R ||  %i  || ",response_packet.size);
 
+            for ( i = 0; i < response_packet.size; ++i) {
+                printf("%c ", recv_buffer.payload[i]);
+            }
+            printf("|\n");
+            for ( i = 0; i < response_packet.size; ++i) { printf("---"); };
+            printf("-----------------\n");
+
+            //Verifica match
             for ( i = 0; i < response_packet.size; ++i) {
                 if(shared_data.reader_head >= PROTEINSIZE-1){
                     pthread_mutex_unlock(&shared_data_mutex);
@@ -182,21 +194,6 @@ void *outcoming_connection_handler(void *client_connection_arg){
                 pthread_mutex_unlock(&shared_data_mutex);
                 // XX SEÇÃO CRITICA
             }
-
-            
-            //printf("Geowing: %s \n", shared_data.growing_sequence);
-
-            for ( i = 0; i < response_packet.size; ++i) { printf("---"); };
-            printf("-----------------\n");
-            printf("|  << R ||  %i  || ",response_packet.size);
-
-            for ( i = 0; i < response_packet.size; ++i) {
-                printf("%c ", recv_buffer.payload[i]);
-            }
-            printf("|\n");
-            for ( i = 0; i < response_packet.size; ++i) { printf("---"); };
-            printf("-----------------\n");
-
         }
     }
 }
@@ -207,7 +204,6 @@ int handle_outcoming_connections(size_t *num_connections, client_info_struct *cl
     for(i = 0; i < *num_connections; i++){
        /* new_client_sock_desc = malloc(sizeof *new_client_sock_desc);
         *new_client_sock_desc = client_sock_desc;*/
-        code_time_start = clock();
         if( pthread_create( &outcoming_connection_threads[i] , NULL ,  outcoming_connection_handler , (void*)&client_connections[i]) < 0){
             {
                 perror("xx Nao foi possivel criar a thread xx");
@@ -225,6 +221,7 @@ void initialize_shared_data(){
     shared_data.reader_head = 0;
     shared_data.num_solicitations = 0;
 
+    //Preenche a sequência completa
     FILE *fp = NULL;
     fp=fopen("col_seq.txt", "r+");
     int i = 0;
@@ -234,7 +231,6 @@ void initialize_shared_data(){
     printf("\nInicializou a sequência completa: %s\n", sequence_buffer);
     strcpy(shared_data.complete_sequence, sequence_buffer);
 
-
     fclose(fp);
 }
 
@@ -243,6 +239,8 @@ void client_fork_handler(client_info_struct *client_socket_str){
 
     size_t num_connections;
     client_connection client_connections[100];
+
+    code_time_start = clock();
 
     initialize_shared_data();
     define_client_connections(client_socket_str->port, &num_connections, client_connections);

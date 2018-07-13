@@ -118,6 +118,9 @@ void *outcoming_connection_handler(void *client_connection_arg){
 	}
         
     int z = 0;
+
+    FILE *fp = NULL;
+    fp=fopen("seq.txt", "a");
     
     while(1){
         cont_sol++;
@@ -129,7 +132,7 @@ void *outcoming_connection_handler(void *client_connection_arg){
 
         msg_procotol_struct outcoming_message = {0};
         outcoming_message.method = 'S';
-        outcoming_message.size = 3;
+        outcoming_message.size = 5;
         memset(&outcoming_message.payload, 0, sizeof(outcoming_message.payload));
 
         send(client_connectionf->socket_desc, &outcoming_message, sizeof(outcoming_message), 0);
@@ -147,7 +150,7 @@ void *outcoming_connection_handler(void *client_connection_arg){
             response_packet.method = 'R';
             response_packet.size = recv_buffer.size;
 
-            for ( i = 0; i < response_packet.size; ++i) { printf("---"); };
+            for ( i = 0; i < response_packet.size-1; ++i) { printf("---"); };
             printf("-----------------\n");
             printf("|  << R ||  %i  || ",response_packet.size);
 
@@ -155,7 +158,7 @@ void *outcoming_connection_handler(void *client_connection_arg){
                 printf("%c ", recv_buffer.payload[i]);
             }
             printf("|\n");
-            for ( i = 0; i < response_packet.size; ++i) { printf("---"); };
+            for ( i = 0; i < response_packet.size-1; ++i) { printf("---"); };
             printf("-----------------\n");
 
             //Verifica match
@@ -173,14 +176,10 @@ void *outcoming_connection_handler(void *client_connection_arg){
 
                 if( shared_data.complete_sequence[shared_data.reader_head] == recv_buffer.payload[i]){
                     shared_data.growing_sequence[shared_data.reader_head] = recv_buffer.payload[i];
-                    printf("\n||  %s  ||\n", shared_data.growing_sequence);
+                    printf("\n|| MATCH da letra %c ||\n||  %s  ||\n||\n\n", recv_buffer.payload[i], shared_data.growing_sequence);
 
-                    /*FILE *fp = NULL;
-                    fp=fopen("seq.txt", "a");
-
-                    fwrite(shared_data.growing_sequence, 1, 2, fp);
-
-                    fclose(fp);*/
+                    //GRAVA NO ARQUIVO   
+                    fprintf(fp, "%c", recv_buffer.payload[i]);
 
                     shared_data.reader_head++;
                     if(shared_data.reader_head >= PROTEINSIZE-1){
@@ -196,6 +195,8 @@ void *outcoming_connection_handler(void *client_connection_arg){
             }
         }
     }
+
+    fclose(fp);
 }
 
 int handle_outcoming_connections(size_t *num_connections, client_info_struct *client_socket_str, client_connection* client_connections){
@@ -283,7 +284,7 @@ void *incoming_connection_handler(void *client_sock_desc){
 										  'Y','V'};
 			int i = 0;
 
-            for ( i = 0; i < recv_buffer.size; ++i) { printf("---"); };
+            for ( i = 0; i < recv_buffer.size-1; ++i) { printf("---"); };
             printf("-----------------\n");
 			printf("|  R >> ||  %i  || ",response_packet.size);
 
@@ -293,7 +294,7 @@ void *incoming_connection_handler(void *client_sock_desc){
 				printf("%c ", response_packet.payload[i]);
 			}
             printf("|\n");
-            for ( i = 0; i < recv_buffer.size; ++i) { printf("---"); };
+            for ( i = 0; i < recv_buffer.size-1; ++i) { printf("---"); };
             printf("-----------------\n");
 
 			//Send the message back to client
@@ -392,7 +393,6 @@ int main(int argc, char *argv[]) {
 	}
 
     //INICIALIZA OS SOCKETS
-    //struct server_info_struct server_info;
     server_info_struct server_info_str;
     client_info_struct client_info_str;
     createAndBindSockets(atoi(argv[1]), &client_info_str, &server_info_str);
@@ -400,19 +400,29 @@ int main(int argc, char *argv[]) {
     //INICIALIZA PROCESSOS
     pid_t child_a, child_b, wpid;
     int status = 0;
-    char fd[2];  // Pipe para envio do aminoácido
 
     child_a = fork();
 
     if (child_a == 0) {
-        client_fork_handler(&client_info_str);
+        printf("\n:: SERVIDOR INICIADO ::\n");
+        server_fork_handler(&server_info_str);
+    
     } else {
         child_b = fork();
 
         if (child_b == 0) {
-            server_fork_handler(&server_info_str);
+            printf("\n:: DIGITE 'C' PARA INICIAR O CLIENTE ::\n");
+            printf("Entrada: ");
+            int c = getchar();
+            if(c != EOF){
+                while(c != 'c'){
+                    while((getchar()) != '\n');
+                    printf("Entrada: ");
+                    c = getchar();
+                }
+                client_fork_handler(&client_info_str);
+            }
         } else {
-            printf("app");
             while ((wpid = wait(&status)) > 0);
         }
     }

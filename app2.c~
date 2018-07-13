@@ -157,7 +157,7 @@ void *outgoing_connection_handler(void *client_connection_arg){
             printf("|  << R ||  %i  || ",response_packet.size);
 
             for ( i = 0; i < response_packet.size; ++i) {
-                printf("%c ", recv_buffer.payload[i]);
+                printf("%s ", recv_buffer.payload[i]);
             }
             printf("|\n");
             for ( i = 0; i < response_packet.size-1; ++i) { printf("---"); };

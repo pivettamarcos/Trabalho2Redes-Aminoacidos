@@ -12,6 +12,8 @@
 #include <signal.h>
 #include <errno.h>
 #include <time.h>
+#include <locale.h>
+#include <wchar.h>
 
 #define PROTEINSIZE 609
 
@@ -99,7 +101,7 @@ void define_client_connections(int port, size_t *num_connections, client_connect
 	// ===================================================================
 }
 
-void *outgoing_connection_handler(void *client_connection_arg){
+void *outcoming_connection_handler(void *client_connection_arg){
     int read_size;
     char *message; 
     int max_num_sol = 20000, cont_sol = 0;
@@ -130,16 +132,12 @@ void *outgoing_connection_handler(void *client_connection_arg){
             pthread_exit(NULL); 
         }
 
-        msg_procotol_struct outgoing_message = {0};
-        outgoing_message.method = 'S';
-        outgoing_message.size = 5;
-        memset(&outgoing_message.payload, 0, sizeof(outgoing_message.payload));
+        msg_procotol_struct outcoming_message = {0};
+        outcoming_message.method = 'S';
+        outcoming_message.size = 5;
+        memset(&outcoming_message.payload, 0, sizeof(outcoming_message.payload));
 
-        send(client_connectionf->socket_desc, &outgoing_message, sizeof(outgoing_message), 0);
-
-        printf("-----------------\n");
-        printf("|  S >> ||  %d  || \n", outgoing_message.size);
-        printf("-----------------\n");
+        send(client_connectionf->socket_desc, &outcoming_message, sizeof(outcoming_message), 0);
 
         read_size = recv(client_connectionf->socket_desc , &recv_buffer , sizeof(recv_buffer) , 0);
         
@@ -149,17 +147,6 @@ void *outgoing_connection_handler(void *client_connection_arg){
             msg_procotol_struct response_packet = {0};
             response_packet.method = 'R';
             response_packet.size = recv_buffer.size;
-
-            for ( i = 0; i < response_packet.size-1; ++i) { printf("---"); };
-            printf("-----------------\n");
-            printf("|  << R ||  %i  || ",response_packet.size);
-
-            for ( i = 0; i < response_packet.size; ++i) {
-                printf("%c ", recv_buffer.payload[i]);
-            }
-            printf("|\n");
-            for ( i = 0; i < response_packet.size-1; ++i) { printf("---"); };
-            printf("-----------------\n");
 
             //Verifica match
             for ( i = 0; i < response_packet.size; ++i) {
@@ -176,7 +163,6 @@ void *outgoing_connection_handler(void *client_connection_arg){
 
                 if( shared_data.complete_sequence[shared_data.reader_head] == recv_buffer.payload[i]){
                     shared_data.growing_sequence[shared_data.reader_head] = recv_buffer.payload[i];
-                    printf("\n|| MATCH da letra %c ||\n||  %s  ||\n||\n\n", recv_buffer.payload[i], shared_data.growing_sequence);
 
                     //GRAVA NO ARQUIVO   
                     fprintf(fp, "%c", recv_buffer.payload[i]);
@@ -199,13 +185,13 @@ void *outgoing_connection_handler(void *client_connection_arg){
     fclose(fp);
 }
 
-int handle_outgoing_connections(size_t *num_connections, client_info_struct *client_socket_str, client_connection* client_connections){
+int handle_outcoming_connections(size_t *num_connections, client_info_struct *client_socket_str, client_connection* client_connections){
     int i = 0;
-    pthread_t outgoing_connection_threads[*num_connections];
+    pthread_t outcoming_connection_threads[*num_connections];
     for(i = 0; i < *num_connections; i++){
        /* new_client_sock_desc = malloc(sizeof *new_client_sock_desc);
         *new_client_sock_desc = client_sock_desc;*/
-        if( pthread_create( &outgoing_connection_threads[i] , NULL ,  outgoing_connection_handler , (void*)&client_connections[i]) < 0){
+        if( pthread_create( &outcoming_connection_threads[i] , NULL ,  outcoming_connection_handler , (void*)&client_connections[i]) < 0){
             {
                 perror("xx Nao foi possivel criar a thread xx");
                 return 1;
@@ -214,7 +200,7 @@ int handle_outgoing_connections(size_t *num_connections, client_info_struct *cli
     }
 
     for (int i = 0; i < *num_connections; i++){
-       pthread_join(outgoing_connection_threads[i], NULL);
+       pthread_join(outcoming_connection_threads[i], NULL);
     }
 }
 
@@ -246,23 +232,20 @@ void client_fork_handler(client_info_struct *client_socket_str){
     size_t num_connections;
     client_connection client_connections[100];
 
-    code_time_start = clock();
-
     initialize_shared_data();
     define_client_connections(client_socket_str->port, &num_connections, client_connections);
-    handle_outgoing_connections(&num_connections, client_socket_str, client_connections);
+
+    code_time_start = clock();
+
+    handle_outcoming_connections(&num_connections, client_socket_str, client_connections);
 
     code_time_end = clock();
 
-    if(strcmp(shared_data.growing_sequence, shared_data.complete_sequence) == 0)
-        printf("\nA SEQUỄNCIA ESTÁ COMPLETA\n");
-    else
-        printf("\nNÃO FOI POSSÍVEL COMPLETAR A SEQUÊNCIA, EXCEDEU O NÚMERO DE SOLICITAÇÕES\n");
-
+    printf("\nA SEQUỄNCIA ESTÁ COMPLETA\n");
     printf("\n||  %s  ||\n", shared_data.growing_sequence);
     printf("\nNúmero total de solicitações: %i \n",shared_data.num_solicitations);
 
-    double time_spent = (double)(code_time_end - code_time_start) / (double)CLOCKS_PER_SEC;
+    double time_spent = (double)(code_time_end - code_time_start) / CLOCKS_PER_SEC;
     printf("\nTempo decorrido: %f \n", time_spent);
 }
 // ======================
@@ -279,32 +262,35 @@ void *incoming_connection_handler(void *client_sock_desc){
 		// SOLICITACAO DE TRINCAS -- CLIENTE
 		if(recv_buffer.method == 'S'){
 
-			printf("-----------------\n");
-			printf("|  << S ||  %i  || \n", recv_buffer.size);
-			printf("-----------------\n");
+			printf("xxxxxxxxxxxxxxxxx\n");
+			printf("x  << S ||  %i  x \n", recv_buffer.size);
+			printf("xxxxxxxxxxxxxxxxx\n");
 
 			msg_procotol_struct response_packet = {0};
 			response_packet.method = 'R';
 			response_packet.size = recv_buffer.size;
 			memset(&response_packet.payload, 0, sizeof(response_packet));
 
-			char random_aminoacids[20] = {'A','R','N','D','C','E','Q','G',
+			char random_aminoacids[40] = {'A','R','N','D','C','E','Q','G',
 										  'H','I','L','K','M','F','P','S','T','W',
-										  'Y','V'};
+										  'Y','V',
+                                          'W','I','W','M','I','I','W','M',
+										  'I','M','W','I','G','W','W','I','M','G',
+										  'I','I'};
 			int i = 0;
 
-            for ( i = 0; i < recv_buffer.size-1; ++i) { printf("---"); };
-            printf("-----------------\n");
-			printf("|  R >> ||  %i  || ",response_packet.size);
+            for ( i = 0; i < recv_buffer.size-1; ++i) { printf("xxx"); };
+            printf("xxxxxxxxxxxxxxxxx\n");
+			printf("x  R >> ||  %i  || ",response_packet.size);
 
 			for ( i = 0; i < recv_buffer.size; ++i) {
-				int random_index = (rand() % 20);
+				int random_index = (rand() % 40);
 				response_packet.payload[i] = random_aminoacids[random_index];
 				printf("%c ", response_packet.payload[i]);
 			}
-            printf("|\n");
-            for ( i = 0; i < recv_buffer.size-1; ++i) { printf("---"); };
-            printf("-----------------\n");
+            printf("x\n");
+            for ( i = 0; i < recv_buffer.size-1; ++i) { printf("xxx"); };
+            printf("xxxxxxxxxxxxxxxxx\n");
 
 			//Send the message back to client
 			write(sock , &response_packet , sizeof(response_packet));
@@ -392,10 +378,15 @@ int createAndBindSockets(int port, client_info_struct *client_info_str, server_i
 }
 
 int main(int argc, char *argv[]) {
+    setlocale(LC_ALL, "en_US.utf8");
     setbuf(stdout, NULL);
     srand( (unsigned)time( NULL ));
-    pthread_mutex_init(&lock_resource, NULL);	
+    pthread_mutex_init(&shared_data_mutex, NULL);	
 
+    int z = 0;
+    for(z = 0; z < 10; z++)
+        printf("%lc ", 0x1F608);
+    printf("\n");
 
 	//Verifica se foi colocado argumento da porta
     if (argc != 2) {
@@ -415,14 +406,14 @@ int main(int argc, char *argv[]) {
     child_a = fork();
 
     if (child_a == 0) {
-        printf("\n:: SERVIDOR INICIADO ::\n");
-        server_fork_handler(&server_info_str);
+        printf("\nXX SERVIDOR INICIADO XX\n");
+      //  server_fork_handler(&server_info_str);
     
     } else {
         child_b = fork();
 
         if (child_b == 0) {
-            printf("\n:: DIGITE 'C' PARA INICIAR O CLIENTE ::\n");
+            printf("\nXX DIGITE 'C' PARA INICIAR O CLIENTE XX\n");
             printf("Entrada: ");
             int c = getchar();
             if(c != EOF){

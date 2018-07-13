@@ -238,6 +238,11 @@ void initialize_shared_data(){
 void client_fork_handler(client_info_struct *client_socket_str){
     /* Envia solicitações e escuta resposta */
 
+    //esvazia sequencia atual
+    FILE *fp = NULL;
+    fp=fopen("seq.txt", "w");
+    fclose(fp);
+
     size_t num_connections;
     client_connection client_connections[100];
 
